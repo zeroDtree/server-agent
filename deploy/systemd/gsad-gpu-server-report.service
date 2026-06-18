@@ -1,0 +1,17 @@
+[Unit]
+Description=GSAD GPU metrics reporter
+Documentation=file:/opt/gsad-agent/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/gsad-agent/gpu-server-report
+EnvironmentFile=-/etc/gsad-agent/common.env
+EnvironmentFile=-/etc/gsad-agent/reporter.env
+ExecStart=@UV_BIN@ run python reporter.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

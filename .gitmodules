@@ -1,0 +1,6 @@
+[submodule "account-provisioner"]
+	path = account-provisioner
+	url = git@github.com:zeroDtree/account-provisioner.git
+[submodule "gpu-server-report"]
+	path = gpu-server-report
+	url = git@github.com:zeroDtree/gpu-server-report.git

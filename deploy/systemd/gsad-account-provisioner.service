@@ -1,0 +1,17 @@
+[Unit]
+Description=GSAD account provisioner
+Documentation=file:/opt/gsad-agent/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/gsad-agent/account-provisioner
+EnvironmentFile=-/etc/gsad-agent/common.env
+EnvironmentFile=-/etc/gsad-agent/provisioner.env
+ExecStart=@UV_BIN@ run python provision_loop.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
