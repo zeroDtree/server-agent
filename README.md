@@ -14,7 +14,7 @@ Keep the clone at a **stable path**; re-run `install.sh` after moving it.
 ## Install
 
 ```bash
-git clone --recursive <repo-url> <dir> && cd <dir>
+git clone --recursive git@github.com:zeroDtree/server-agent.git server-agent && cd server-agent
 
 sudo REPORT_API_URL=https://api.example \
      AGENT_PSK=your-psk \
