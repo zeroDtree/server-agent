@@ -2,8 +2,10 @@
 # Stop and remove GSAD GPU host agent systemd services.
 set -euo pipefail
 
-INSTALL_ROOT="/opt/gsad-agent"
-CONFIG_DIR="/etc/gsad-agent"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ENV_DIR="${SOURCE_ROOT}/deploy/env"
+
 PROVISIONER_SERVICE="gsad-account-provisioner.service"
 REPORTER_SERVICE="gsad-gpu-server-report.service"
 
@@ -16,7 +18,7 @@ usage() {
   cat <<'EOF'
 Usage: uninstall.sh [--purge]
 
-  --purge   Remove /opt/gsad-agent and /etc/gsad-agent
+  --purge   Remove deploy/env/common.env, provisioner.env, reporter.env
 EOF
 }
 
@@ -52,12 +54,14 @@ remove_units() {
 
 purge_files() {
   if [[ "${PURGE}" -ne 1 ]]; then
-    log "Install tree kept at ${INSTALL_ROOT}"
-    log "Config kept at ${CONFIG_DIR}/ (use --purge to remove)"
+    log "Config kept at ${ENV_DIR}/ (use --purge to remove generated .env files)"
     return
   fi
-  log "Purging ${INSTALL_ROOT} and ${CONFIG_DIR}"
-  rm -rf "${INSTALL_ROOT}" "${CONFIG_DIR}"
+  log "Removing generated env files in ${ENV_DIR}"
+  rm -f \
+    "${ENV_DIR}/common.env" \
+    "${ENV_DIR}/provisioner.env" \
+    "${ENV_DIR}/reporter.env"
 }
 
 main() {

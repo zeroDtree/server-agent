@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
-# Install or upgrade GSAD GPU host agents (account-provisioner + gpu-server-report).
+#
+# -----------------------------------------------------------------------------
+# install.sh — install systemd units for GSAD GPU host agents.
+#
+# Services run from THIS repository checkout (no copy to /opt or /etc).
+# Config lives under deploy/env/*.env; units reference @REPO_ROOT@ paths.
+# Re-run after moving the clone so systemd paths stay correct.
+#
+# Examples
+#   sudo REPORT_API_URL=https://api.example AGENT_PSK=... AGENT_SERVER_ID=gpu-01 ./install.sh
+# -----------------------------------------------------------------------------
 set -euo pipefail
 
-INSTALL_ROOT="/opt/gsad-agent"
-CONFIG_DIR="/etc/gsad-agent"
 UV_BIN="${UV_BIN:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ENV_DIR="${SOURCE_ROOT}/deploy/env"
 
 PROVISIONER_SERVICE="gsad-account-provisioner.service"
 REPORTER_SERVICE="gsad-gpu-server-report.service"
@@ -67,43 +76,12 @@ check_isolation() {
     "Missing isolation scripts. Run: git submodule update --init --recursive"
 }
 
-sync_agent_tree() {
-  log "Syncing agents to ${INSTALL_ROOT}"
-  mkdir -p "${INSTALL_ROOT}"
-
-  if command -v rsync >/dev/null 2>&1; then
-    rsync -a --delete \
-      --exclude '.git' \
-      --exclude '.venv' \
-      --exclude '__pycache__' \
-      --exclude '*.pyc' \
-      "${SOURCE_ROOT}/account-provisioner/" "${INSTALL_ROOT}/account-provisioner/"
-    rsync -a --delete \
-      --exclude '.git' \
-      --exclude '.venv' \
-      --exclude '__pycache__' \
-      --exclude '*.pyc' \
-      "${SOURCE_ROOT}/gpu-server-report/" "${INSTALL_ROOT}/gpu-server-report/"
-    rsync -a "${SOURCE_ROOT}/README.md" "${INSTALL_ROOT}/README.md" 2>/dev/null || true
-  else
-    rm -rf "${INSTALL_ROOT}/account-provisioner" "${INSTALL_ROOT}/gpu-server-report"
-    cp -a "${SOURCE_ROOT}/account-provisioner" "${INSTALL_ROOT}/"
-    cp -a "${SOURCE_ROOT}/gpu-server-report" "${INSTALL_ROOT}/"
-    rm -rf \
-      "${INSTALL_ROOT}/account-provisioner/.git" \
-      "${INSTALL_ROOT}/account-provisioner/.venv" \
-      "${INSTALL_ROOT}/gpu-server-report/.git" \
-      "${INSTALL_ROOT}/gpu-server-report/.venv" 2>/dev/null || true
-    [[ -f "${SOURCE_ROOT}/README.md" ]] && cp -a "${SOURCE_ROOT}/README.md" "${INSTALL_ROOT}/README.md"
-  fi
-}
-
 install_env_file() {
   local name="$1"
-  local example="$2"
-  local dest="${CONFIG_DIR}/${name}"
+  local example="${ENV_DIR}/${name}.example"
+  local dest="${ENV_DIR}/${name}"
 
-  mkdir -p "${CONFIG_DIR}"
+  mkdir -p "${ENV_DIR}"
   if [[ ! -f "${dest}" ]]; then
     cp "${example}" "${dest}"
     chmod 600 "${dest}"
@@ -113,32 +91,47 @@ install_env_file() {
   fi
 }
 
+set_common_env_var() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+
+  if grep -q "^${key}=" "${file}" 2>/dev/null; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "${file}"
+  else
+    printf '%s=%s\n' "${key}" "${value}" >> "${file}"
+  fi
+}
+
+sync_upstream_api_url() {
+  local common="$1"
+  local report_url
+
+  report_url="$(grep '^REPORT_API_URL=' "${common}" 2>/dev/null | cut -d= -f2- || true)"
+  if [[ -z "${report_url}" ]]; then
+    return 0
+  fi
+
+  set_common_env_var "${common}" UPSTREAM_API_URL "${report_url}"
+}
+
 apply_env_overrides() {
-  local common="${CONFIG_DIR}/common.env"
+  local common="${ENV_DIR}/common.env"
   touch "${common}"
   chmod 600 "${common}"
 
-  if [[ -n "${GSAD_API_URL:-}" ]]; then
-    if grep -q '^GSAD_API_URL=' "${common}" 2>/dev/null; then
-      sed -i "s|^GSAD_API_URL=.*|GSAD_API_URL=${GSAD_API_URL}|" "${common}"
-    else
-      printf 'GSAD_API_URL=%s\n' "${GSAD_API_URL}" >> "${common}"
-    fi
+  if [[ -n "${REPORT_API_URL:-}" ]]; then
+    set_common_env_var "${common}" REPORT_API_URL "${REPORT_API_URL}"
+    set_common_env_var "${common}" UPSTREAM_API_URL "${REPORT_API_URL}"
   fi
   if [[ -n "${AGENT_PSK:-}" ]]; then
-    if grep -q '^AGENT_PSK=' "${common}" 2>/dev/null; then
-      sed -i "s|^AGENT_PSK=.*|AGENT_PSK=${AGENT_PSK}|" "${common}"
-    else
-      printf 'AGENT_PSK=%s\n' "${AGENT_PSK}" >> "${common}"
-    fi
+    set_common_env_var "${common}" AGENT_PSK "${AGENT_PSK}"
   fi
-  if [[ -n "${AGENT_HOSTNAME:-}" ]]; then
-    if grep -q '^AGENT_HOSTNAME=' "${common}" 2>/dev/null; then
-      sed -i "s|^AGENT_HOSTNAME=.*|AGENT_HOSTNAME=${AGENT_HOSTNAME}|" "${common}"
-    else
-      printf 'AGENT_HOSTNAME=%s\n' "${AGENT_HOSTNAME}" >> "${common}"
-    fi
+  if [[ -n "${AGENT_SERVER_ID:-}" ]]; then
+    set_common_env_var "${common}" AGENT_SERVER_ID "${AGENT_SERVER_ID}"
   fi
+
+  sync_upstream_api_url "${common}"
 }
 
 uv_sync_agent() {
@@ -152,12 +145,14 @@ install_systemd_unit() {
   local src="${SCRIPT_DIR}/systemd/${unit}"
   local dest="/etc/systemd/system/${unit}"
 
-  sed "s|@UV_BIN@|${UV_BIN}|g" "${src}" > "${dest}"
+  sed -e "s|@REPO_ROOT@|${SOURCE_ROOT}|g" \
+      -e "s|@UV_BIN@|${UV_BIN}|g" \
+      "${src}" > "${dest}"
   chmod 644 "${dest}"
 }
 
 install_systemd_units() {
-  log "Installing systemd units (uv: ${UV_BIN})"
+  log "Installing systemd units (repo: ${SOURCE_ROOT}, uv: ${UV_BIN})"
   install_systemd_unit "${PROVISIONER_SERVICE}"
   install_systemd_unit "${REPORTER_SERVICE}"
   systemctl daemon-reload
@@ -195,20 +190,20 @@ main() {
   require_uv
   check_isolation
 
-  install_env_file "common.env" "${SCRIPT_DIR}/env/common.env.example"
-  install_env_file "provisioner.env" "${SCRIPT_DIR}/env/provisioner.env.example"
-  install_env_file "reporter.env" "${SCRIPT_DIR}/env/reporter.env.example"
+  install_env_file "common.env"
+  install_env_file "provisioner.env"
+  install_env_file "reporter.env"
   apply_env_overrides
 
-  sync_agent_tree
-  uv_sync_agent "${INSTALL_ROOT}/account-provisioner"
-  uv_sync_agent "${INSTALL_ROOT}/gpu-server-report"
+  uv_sync_agent "${SOURCE_ROOT}/account-provisioner"
+  uv_sync_agent "${SOURCE_ROOT}/gpu-server-report"
 
   install_systemd_units
   verify_services
 
   log "Installation complete"
-  log "Config: ${CONFIG_DIR}/"
+  log "Repo path: ${SOURCE_ROOT} (keep stable; re-run install after moving)"
+  log "Config: ${ENV_DIR}/"
   log "Logs: journalctl -u ${PROVISIONER_SERVICE} -u ${REPORTER_SERVICE} -f"
 }
 
