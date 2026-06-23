@@ -16,7 +16,7 @@ Keep the clone at a **stable path**; re-run `install.sh` after moving it.
 ```bash
 git clone --recursive git@github.com:zeroDtree/server-agent.git server-agent && cd server-agent
 
-sudo REPORT_API_URL=https://api.example \
+sudo REPORT_API_URL=http://10.0.0.1:8080 \
      AGENT_PSK=your-psk \
      AGENT_SERVER_ID=gpu-node-01 \
      ./deploy/install.sh
@@ -26,7 +26,7 @@ Installer writes systemd units pointing at this repo, ensures `deploy/env/*.env`
 
 | File | Purpose |
 |------|---------|
-| `deploy/env/common.env` | `REPORT_API_URL`, `AGENT_PSK`, `AGENT_SERVER_ID` |
+| `deploy/env/common.env` | `REPORT_API_URL`, `AGENT_PSK`, `AGENT_SERVER_ID`; `install.sh` also writes `UPSTREAM_API_URL` (provisioner) |
 | `deploy/env/provisioner.env` | `DATA_ROOT`, `PROVISION_*`, health `:9091` |
 | `deploy/env/reporter.env` | `AGENT_REPORT_INTERVAL`, health `:9092` |
 
