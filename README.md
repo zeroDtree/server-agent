@@ -24,8 +24,6 @@ sudo REPORT_API_URL=https://api.example \
 
 Installer writes systemd units pointing at this repo, ensures `deploy/env/*.env`, runs `uv sync`.
 
-On upgrade: set `REPORT_API_URL` in `deploy/env/common.env` (rename from legacy `GSAD_API_URL`), then re-run `install.sh`.
-
 | File | Purpose |
 |------|---------|
 | `deploy/env/common.env` | `REPORT_API_URL`, `AGENT_PSK`, `AGENT_SERVER_ID` |
