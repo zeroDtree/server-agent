@@ -9,8 +9,7 @@
 #   sudo ./install.sh
 #
 # Example:
-#   AGENT_PSK=$(./gsad-backend/deploy/scripts/derive-agent-psk.sh gpu-01)
-#   sudo REPORT_API_URL=https://api.example AGENT_PSK=... AGENT_SERVER_ID=gpu-01 ./install.sh
+#   sudo REPORT_API_URL=https://api.example AGENT_PSK=<psk> AGENT_SERVER_ID=gpu-01 ./install.sh
 #
 # Env: REPORT_API_URL — written to deploy/env/common.env when set
 # Env: AGENT_PSK — per-server PSK written to common.env when set
