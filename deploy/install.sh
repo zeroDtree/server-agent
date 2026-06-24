@@ -1,16 +1,45 @@
 #!/usr/bin/env bash
-#
-# -----------------------------------------------------------------------------
-# install.sh — install systemd units for GSAD GPU host agents.
-#
-# Services run from THIS repository checkout (no copy to /opt or /etc).
-# Config lives under deploy/env/*.env; units reference @REPO_ROOT@ paths.
+
+# @help-begin
+# Install systemd units for GSAD GPU host agents from this repository checkout.
+# Services run from the clone (no copy to /opt); config under deploy/env/*.env.
 # Re-run after moving the clone so systemd paths stay correct.
 #
-# Examples
+# Usage:
+#   sudo ./install.sh
+#
+# Example:
+#   AGENT_PSK=$(./gsad-backend/deploy/scripts/derive-agent-psk.sh gpu-01)
 #   sudo REPORT_API_URL=https://api.example AGENT_PSK=... AGENT_SERVER_ID=gpu-01 ./install.sh
-# -----------------------------------------------------------------------------
+#
+# Env: REPORT_API_URL — written to deploy/env/common.env when set
+# Env: AGENT_PSK — per-server PSK written to common.env when set
+# Env: AGENT_SERVER_ID — server id written to common.env when set
+# Env: UV_BIN — path to uv binary (optional override for systemd units)
+# @help-end
+
+# @help-options-begin
+#   -h, --help              show help
+# @help-options-end
+
 set -euo pipefail
+
+log() { printf '==> %s\n' "$*"; }
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+
+usage() {
+  awk '/^# @help-begin$/{f=1; next} /^# @help-end$/{f=0} f' "$0"
+  printf '%s\n' '#' 'Options:' '#'
+  awk '/^# @help-options-begin$/{f=1; next} /^# @help-options-end$/{f=0} f' "$0"
+  exit 0
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help) usage ;;
+    *) die "Unexpected argument: $arg (see --help)" ;;
+  esac
+done
 
 UV_BIN="${UV_BIN:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,9 +48,6 @@ ENV_DIR="${SOURCE_ROOT}/deploy/env"
 
 PROVISIONER_SERVICE="gsad-account-provisioner.service"
 REPORTER_SERVICE="gsad-gpu-server-report.service"
-
-log() { printf '==> %s\n' "$*"; }
-die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 require_root() {
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then

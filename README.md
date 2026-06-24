@@ -13,11 +13,20 @@ Keep the clone at a **stable path**; re-run `install.sh` after moving it.
 
 ## Install
 
+Derive `AGENT_PSK` first (interactive; master secret is typed at prompt — do not export `AGENT_MASTER_SECRET` on GPU hosts):
+
+```bash
+# From server-manager repo (or path to derive-agent-psk.sh)
+AGENT_PSK="$(./gsad-backend/deploy/scripts/derive-agent-psk.sh gpu-node-01)"
+```
+
+Then install:
+
 ```bash
 git clone --recursive git@github.com:zeroDtree/server-agent.git server-agent && cd server-agent
 
 sudo REPORT_API_URL=http://10.0.0.1:8080 \
-     AGENT_PSK=your-psk \
+     AGENT_PSK="${AGENT_PSK}" \
      AGENT_SERVER_ID=gpu-node-01 \
      ./deploy/install.sh
 ```
@@ -26,7 +35,7 @@ Installer writes systemd units pointing at this repo, ensures `deploy/env/*.env`
 
 | File | Purpose |
 |------|---------|
-| `deploy/env/common.env` | `REPORT_API_URL`, `AGENT_PSK`, `AGENT_SERVER_ID`; `install.sh` also writes `UPSTREAM_API_URL` (provisioner) |
+| `deploy/env/common.env` | `REPORT_API_URL`, derived `AGENT_PSK`, `AGENT_SERVER_ID`; `install.sh` also writes `UPSTREAM_API_URL` (provisioner) |
 | `deploy/env/provisioner.env` | `DATA_ROOT`, `PROVISION_*`, health `:9091` |
 | `deploy/env/reporter.env` | `AGENT_REPORT_INTERVAL`, health `:9092` |
 
@@ -39,13 +48,4 @@ git pull && git submodule update --init --recursive && sudo ./deploy/install.sh
 sudo ./deploy/uninstall.sh --purge    # remove units and deploy/env/*.env
 ```
 
-Health: `http://127.0.0.1:9091/health` (provisioner), `:9092` (reporter). Set `AGENT_HEALTH_PORT=0` to disable.
-
-## Development
-
-```bash
-cd account-provisioner && uv sync && cp .env.example .env && uv run python provision_loop.py
-cd gpu-server-report   && uv sync && cp .env.example .env && uv run python reporter.py
-```
-
-See component READMEs for API and CLI details.
+See [account-provisioner/README.md](account-provisioner/README.md) and [gpu-server-report/README.md](gpu-server-report/README.md) for agent-specific options.

@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
+
+# @help-begin
 # Stop and remove GSAD GPU host agent systemd services.
+#
+# Usage:
+#   sudo ./uninstall.sh
+# @help-end
+
+# @help-options-begin
+#   --purge                 remove deploy/env/*.env
+#   -h, --help              show help
+# @help-options-end
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,19 +27,18 @@ log() { printf '==> %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 usage() {
-  cat <<'EOF'
-Usage: uninstall.sh [--purge]
-
-  --purge   Remove deploy/env/common.env, provisioner.env, reporter.env
-EOF
+  awk '/^# @help-begin$/{f=1; next} /^# @help-end$/{f=0} f' "$0"
+  printf '%s\n' '#' 'Options:' '#'
+  awk '/^# @help-options-begin$/{f=1; next} /^# @help-options-end$/{f=0} f' "$0"
+  exit 0
 }
 
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --purge) PURGE=1; shift ;;
-      -h|--help) usage; exit 0 ;;
-      *) die "Unknown option: $1 (try --help)" ;;
+      -h|--help) usage ;;
+      *) die "Unknown option: $1 (see --help)" ;;
     esac
   done
 }
