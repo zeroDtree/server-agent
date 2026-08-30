@@ -7,7 +7,7 @@ GPU host agents for gsad: account provisioning and GPU metrics reporting.
 | [account-provisioner](account-provisioner/) | Polls grant/revoke tasks, runs `isolation/` scripts |
 | [gpu-server-report](gpu-server-report/)     | `nvidia-smi` metrics → gsad report API              |
 
-Production uses **systemd on the GPU host** (not Docker). Provisioner needs host `sudo`, `DATA_ROOT`, NetBird, and the `isolation` submodule.
+Production uses **systemd on the GPU host** (not Docker). Provisioner needs host `sudo`, `DATA_ROOT`, and the `isolation` submodule. Grant `serverIp` comes from `hooks/ipv4.sh` (NetBird by default) or `PROVISION_IPV4_CALLBACK`.
 
 Keep the clone at a **stable path**; re-run `install.sh` after moving it.
 
