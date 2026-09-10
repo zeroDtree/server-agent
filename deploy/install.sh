@@ -11,9 +11,14 @@
 # Example:
 #   sudo REPORT_API_URL=https://api.example AGENT_PSK=<psk> AGENT_SERVER_ID=gpu-01 ./install.sh
 #
-# Env: REPORT_API_URL — written to deploy/env/common.env when set
-# Env: AGENT_PSK — per-server PSK written to common.env when set
-# Env: AGENT_SERVER_ID — server id written to common.env when set
+# Env files are merged from deploy/env/*.env.example on each install:
+#   existing assignments are kept; missing keys are added from the example.
+#   Any key declared in those examples (including commented KEY=value) may be
+#   overridden by a same-named environment variable, including an explicit
+#   empty value. Overrides are written into the matching env file(s).
+#   Restart the systemd units after editing env files by hand.
+#
+# Env: any key declared in deploy/env/*.env.example (see those files)
 # Env: UV_BIN — path to uv binary (optional override for systemd units)
 # @help-end
 
@@ -44,6 +49,9 @@ UV_BIN="${UV_BIN:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ENV_DIR="${SOURCE_ROOT}/deploy/env"
+
+# shellcheck source=lib/env.sh
+. "${SCRIPT_DIR}/lib/env.sh"
 
 PROVISIONER_SERVICE="gsad-account-provisioner.service"
 REPORTER_SERVICE="gsad-gpu-server-report.service"
@@ -101,62 +109,11 @@ check_isolation() {
     "Missing isolation scripts. Run: git submodule update --init --recursive"
 }
 
-install_env_file() {
-  local name="$1"
-  local example="${ENV_DIR}/${name}.example"
-  local dest="${ENV_DIR}/${name}"
-
+ensure_env_files() {
   mkdir -p "${ENV_DIR}"
-  if [[ ! -f "${dest}" ]]; then
-    cp "${example}" "${dest}"
-    chmod 600 "${dest}"
-    log "Created ${dest} (edit before production use)"
-  else
-    log "Keeping existing ${dest}"
-  fi
-}
-
-set_common_env_var() {
-  local file="$1"
-  local key="$2"
-  local value="$3"
-
-  if grep -q "^${key}=" "${file}" 2>/dev/null; then
-    sed -i "s|^${key}=.*|${key}=${value}|" "${file}"
-  else
-    printf '%s=%s\n' "${key}" "${value}" >> "${file}"
-  fi
-}
-
-sync_upstream_api_url() {
-  local common="$1"
-  local report_url
-
-  report_url="$(grep '^REPORT_API_URL=' "${common}" 2>/dev/null | cut -d= -f2- || true)"
-  if [[ -z "${report_url}" ]]; then
-    return 0
-  fi
-
-  set_common_env_var "${common}" UPSTREAM_API_URL "${report_url}"
-}
-
-apply_env_overrides() {
-  local common="${ENV_DIR}/common.env"
-  touch "${common}"
-  chmod 600 "${common}"
-
-  if [[ -n "${REPORT_API_URL:-}" ]]; then
-    set_common_env_var "${common}" REPORT_API_URL "${REPORT_API_URL}"
-    set_common_env_var "${common}" UPSTREAM_API_URL "${REPORT_API_URL}"
-  fi
-  if [[ -n "${AGENT_PSK:-}" ]]; then
-    set_common_env_var "${common}" AGENT_PSK "${AGENT_PSK}"
-  fi
-  if [[ -n "${AGENT_SERVER_ID:-}" ]]; then
-    set_common_env_var "${common}" AGENT_SERVER_ID "${AGENT_SERVER_ID}"
-  fi
-
-  sync_upstream_api_url "${common}"
+  merge_env_file "${ENV_DIR}/common.env" "${ENV_DIR}/common.env.example"
+  merge_env_file "${ENV_DIR}/provisioner.env" "${ENV_DIR}/provisioner.env.example"
+  merge_env_file "${ENV_DIR}/reporter.env" "${ENV_DIR}/reporter.env.example"
 }
 
 uv_sync_agent() {
@@ -215,10 +172,7 @@ main() {
   require_uv
   check_isolation
 
-  install_env_file "common.env"
-  install_env_file "provisioner.env"
-  install_env_file "reporter.env"
-  apply_env_overrides
+  ensure_env_files
 
   uv_sync_agent "${SOURCE_ROOT}/account-provisioner"
   uv_sync_agent "${SOURCE_ROOT}/gpu-server-report"

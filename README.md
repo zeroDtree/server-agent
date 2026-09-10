@@ -22,16 +22,15 @@ sudo REPORT_API_URL=http://10.0.0.1:8080 \
      ./deploy/install.sh
 ```
 
-Installer writes systemd units pointing at this repo, ensures `deploy/env/*.env`, runs `uv sync`.
+Installer writes systemd units pointing at this repo, merges `deploy/env/*.env` from the matching `*.env.example` files, and runs `uv sync`.
 
-| File                         | Purpose                                                                                                     |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `deploy/env/common.env`      | `REPORT_API_URL`, `AGENT_PSK`, `AGENT_SERVER_ID`; `install.sh` also writes `UPSTREAM_API_URL` (provisioner) |
-| `deploy/env/provisioner.env` | `DATA_ROOT`, `PROVISION_*`, health `:9091`                                                                  |
-| `deploy/env/reporter.env`    | `AGENT_REPORT_INTERVAL`, health `:9092`                                                                     |
+Existing assignments in `deploy/env/*.env` are kept. Keys present in an example but missing from the dest file are added. Any key declared in those examples (including commented `KEY=value` lines) can be set on the install command and is written into each matching env file, including an explicit empty value. `UPSTREAM_API_URL` is optional; the provisioner falls back to `REPORT_API_URL` when it is unset. Restart the units after editing env files by hand.
 
-
-
+| File                         | Purpose                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| `deploy/env/common.env`      | `REPORT_API_URL`, `AGENT_PSK`, `AGENT_SERVER_ID`; optional `UPSTREAM_API_URL`                |
+| `deploy/env/provisioner.env` | `DATA_ROOT`, `PROVISION_*`, health `:9091`                                                   |
+| `deploy/env/reporter.env`    | `AGENT_REPORT_INTERVAL`, health `:9092`                                                      |
 
 ## Upgrade
 
