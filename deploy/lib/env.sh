@@ -8,6 +8,18 @@ if [[ "$(type -t die 2>/dev/null || true)" != function ]]; then
   die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 fi
 
+env_file_has_declaration() {
+  local file="$1"
+  local key="$2"
+  [[ -f "$file" ]] && grep -Eq "^[[:space:]]*#?[[:space:]]*${key}=" "$file"
+}
+
+env_file_has_assignment() {
+  local file="$1"
+  local key="$2"
+  [[ -f "$file" ]] && grep -q "^${key}=" "$file"
+}
+
 # Print KEY when LINE is an assignment or a commented assignment declaration.
 # Matches: KEY=..., # KEY=..., #KEY=...
 declared_env_key() {
@@ -35,18 +47,6 @@ env_value() {
   local name="$1"
   is_safe_env_name "$name" || die "Invalid environment variable name: ${name}"
   eval "printf '%s' \"\${${name}}\""
-}
-
-env_file_has_assignment() {
-  local file="$1"
-  local key="$2"
-  [[ -f "$file" ]] && grep -q "^${key}=" "$file"
-}
-
-env_file_has_declaration() {
-  local file="$1"
-  local key="$2"
-  [[ -f "$file" ]] && grep -Eq "^[[:space:]]*#?[[:space:]]*${key}=" "$file"
 }
 
 # Double-quote a value for systemd EnvironmentFile. Rejects CR/LF.
